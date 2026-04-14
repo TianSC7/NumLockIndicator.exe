@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace NumLockIndicator;
 
@@ -14,6 +15,10 @@ public class AppSettings
     public double WindowTop { get; set; } = double.NaN;
     public string OnText { get; set; } = "NUM ON";
     public string OffText { get; set; } = "NUM OFF";
+    public string CapsOnText { get; set; } = "CAPS ON";
+    public string CapsOffText { get; set; } = "CAPS OFF";
+    public double CapsWindowLeft { get; set; } = double.NaN;
+    public double CapsWindowTop { get; set; } = double.NaN;
 
     private static readonly string SettingsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NumLockIndicator");
@@ -21,7 +26,8 @@ public class AppSettings
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     public static AppSettings Load()

@@ -11,15 +11,11 @@ public partial class SettingsWindow : Window
 
     public static event Action? SettingsSaved;
 
-    private bool _initialized;
-
     public SettingsWindow(AppSettings settings)
     {
         _settings = settings;
         InitializeComponent();
         LoadSettings();
-        _initialized = true;
-        UpdatePreview();
     }
 
     private void LoadSettings()
@@ -30,6 +26,8 @@ public partial class SettingsWindow : Window
         WindowHeightBox.Text = _settings.WindowHeight.ToString("F0");
         OnTextBox.Text = _settings.OnText;
         OffTextBox.Text = _settings.OffText;
+        CapsOnTextBox.Text = _settings.CapsOnText;
+        CapsOffTextBox.Text = _settings.CapsOffText;
 
         foreach (var family in Fonts.SystemFontFamilies)
         {
@@ -37,53 +35,16 @@ public partial class SettingsWindow : Window
         }
 
         FontFamilyCombo.Text = _settings.FontFamily;
-
-        OnTextBox.TextChanged += (s, e) => UpdatePreview();
-        OffTextBox.TextChanged += (s, e) => UpdatePreview();
     }
 
     private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        UpdatePreview();
     }
 
     private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (FontSizeLabel == null) return;
         FontSizeLabel.Text = ((int)FontSizeSlider.Value).ToString();
-        UpdatePreview();
-    }
-
-    private void UpdatePreview()
-    {
-        if (!_initialized || PreviewOnText == null) return;
-
-        var fontFamilyName = FontFamilyCombo.Text;
-        var fontSize = (int)FontSizeSlider.Value;
-        var onText = string.IsNullOrEmpty(OnTextBox.Text) ? "NUM ON" : OnTextBox.Text;
-        var offText = string.IsNullOrEmpty(OffTextBox.Text) ? "\u26A0 NUM OFF" : OffTextBox.Text;
-
-        try
-        {
-            var ff = new FontFamily(fontFamilyName);
-            PreviewOnText.FontFamily = ff;
-            PreviewOffText.FontFamily = ff;
-        }
-        catch
-        {
-            PreviewOnText.FontFamily = new FontFamily("Microsoft YaHei");
-            PreviewOffText.FontFamily = new FontFamily("Microsoft YaHei");
-        }
-
-        PreviewOnText.Text = onText;
-        PreviewOnText.FontSize = Math.Max(12, Math.Min(fontSize, 36));
-        PreviewOnText.Foreground = new SolidColorBrush(Color.FromRgb(0xEC, 0xF0, 0xF1));
-        PreviewOnBorder.Background = new SolidColorBrush(Color.FromArgb(0x30, 0x27, 0xAE, 0x60));
-
-        PreviewOffText.Text = offText;
-        PreviewOffText.FontSize = Math.Max(12, Math.Min(fontSize, 36));
-        PreviewOffText.Foreground = Brushes.White;
-        PreviewOffBorder.Background = new SolidColorBrush(Color.FromArgb(0xE0, 0xE7, 0x4C, 0x3C));
     }
 
     private bool ApplyValues()
@@ -105,6 +66,8 @@ public partial class SettingsWindow : Window
         _settings.WindowHeight = h;
         _settings.OnText = OnTextBox.Text;
         _settings.OffText = OffTextBox.Text;
+        _settings.CapsOnText = CapsOnTextBox.Text;
+        _settings.CapsOffText = CapsOffTextBox.Text;
 
         try
         {

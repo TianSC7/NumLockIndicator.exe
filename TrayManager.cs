@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -8,12 +9,14 @@ namespace NumLockIndicator;
 public class TrayManager : IDisposable
 {
     private TaskbarIcon? _notifyIcon;
-    private readonly MainWindow _mainWindow;
+    private readonly List<IndicatorWindow> _windows = new();
     private readonly AppSettings _settings;
+    private MenuItem? _toggleItem;
 
-    public TrayManager(MainWindow mainWindow, AppSettings settings)
+    public TrayManager(IndicatorWindow numLockWindow, IndicatorWindow capsLockWindow, AppSettings settings)
     {
-        _mainWindow = mainWindow;
+        _windows.Add(numLockWindow);
+        _windows.Add(capsLockWindow);
         _settings = settings;
         InitializeTray();
     }
@@ -22,7 +25,7 @@ public class TrayManager : IDisposable
     {
         _notifyIcon = new TaskbarIcon
         {
-            ToolTipText = "NumLock Indicator",
+            ToolTipText = "NumLock & CapsLock Indicator",
             IconSource = new System.Windows.Media.Imaging.BitmapImage(
                 new Uri("pack://application:,,,/icon.ico", UriKind.Absolute))
         };
@@ -33,9 +36,9 @@ public class TrayManager : IDisposable
         settingsItem.Click += (s, e) => OpenSettings();
         contextMenu.Items.Add(settingsItem);
 
-        var toggleItem = new MenuItem { Header = "显示/隐藏窗口" };
-        toggleItem.Click += (s, e) => ToggleWindow();
-        contextMenu.Items.Add(toggleItem);
+        _toggleItem = new MenuItem { Header = "隐藏" };
+        _toggleItem.Click += (s, e) => ToggleWindows();
+        contextMenu.Items.Add(_toggleItem);
 
         contextMenu.Items.Add(new Separator());
 
@@ -44,9 +47,19 @@ public class TrayManager : IDisposable
         contextMenu.Items.Add(exitItem);
 
         _notifyIcon.ContextMenu = contextMenu;
-
-        _notifyIcon.TrayLeftMouseDown += (s, e) => ToggleWindow();
+        contextMenu.Opened += (s, e) => UpdateToggleText();
     }
+
+    private void UpdateToggleText()
+    {
+        if (_toggleItem != null)
+        {
+            bool anyVisible = _windows.Exists(w => w.IsVisible);
+            _toggleItem.Header = anyVisible ? "隐藏" : "显示";
+        }
+    }
+
+    private SettingsWindow? _openSettingsWindow;
 
     private void OpenSettings()
     {
@@ -54,9 +67,16 @@ public class TrayManager : IDisposable
         {
             try
             {
-                var settingsWindow = new SettingsWindow(_settings);
-                settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                settingsWindow.ShowDialog();
+                if (_openSettingsWindow != null && _openSettingsWindow.IsLoaded)
+                {
+                    _openSettingsWindow.Activate();
+                    return;
+                }
+
+                _openSettingsWindow = new SettingsWindow(_settings);
+                _openSettingsWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                _openSettingsWindow.Closed += (s, e) => _openSettingsWindow = null;
+                _openSettingsWindow.ShowDialog();
             }
             catch (Exception ex)
             {
@@ -65,12 +85,16 @@ public class TrayManager : IDisposable
         }));
     }
 
-    private void ToggleWindow()
+    private void ToggleWindows()
     {
-        if (_mainWindow.IsVisible)
-            _mainWindow.Hide();
-        else
-            _mainWindow.Show();
+        bool anyVisible = _windows.Exists(w => w.IsVisible);
+        foreach (var w in _windows)
+        {
+            if (anyVisible)
+                w.Hide();
+            else
+                w.Show();
+        }
     }
 
     private void ExitApp()

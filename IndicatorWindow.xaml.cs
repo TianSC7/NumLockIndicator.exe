@@ -8,15 +8,19 @@ using System.Windows.Threading;
 
 namespace NumLockIndicator;
 
-public partial class MainWindow : Window
+public enum IndicatorType { NumLock, CapsLock }
+
+public partial class IndicatorWindow : Window
 {
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int nVirtKey);
 
     private static bool IsNumLockOn() => (GetKeyState(0x90) & 0x0001) != 0;
+    private static bool IsCapsLockOn() => (GetKeyState(0x14) & 0x0001) != 0;
 
     private readonly DispatcherTimer _timer;
     private readonly AppSettings _settings;
+    private readonly IndicatorType _type;
     private bool _lastState;
 
     private static readonly SolidColorBrush OnBg = new(Color.FromArgb(0x30, 0x27, 0xAE, 0x60));
@@ -24,28 +28,55 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush OnDot = new(Color.FromRgb(0x27, 0xAE, 0x60));
     private static readonly SolidColorBrush OffDot = new(Color.FromRgb(0xFF, 0xD7, 0x00));
 
-    public MainWindow(AppSettings settings)
+    public const double VisualMargin = 8;
+
+    public IndicatorType Type => _type;
+
+    public event Action<IndicatorWindow>? PositionChanged;
+    public event Action<IndicatorWindow>? DragStarted;
+    public event Action<IndicatorWindow>? DragCompleted;
+
+    public Rect GetVisualRect()
+    {
+        return new Rect(
+            Left + VisualMargin,
+            Top + VisualMargin,
+            ActualWidth - VisualMargin * 2,
+            ActualHeight - VisualMargin * 2);
+    }
+
+    public IndicatorWindow(AppSettings settings, IndicatorType type)
     {
         _settings = settings;
+        _type = type;
         InitializeComponent();
 
         Width = _settings.WindowWidth;
         Height = _settings.WindowHeight;
 
-        if (!double.IsNaN(_settings.WindowLeft) && !double.IsNaN(_settings.WindowTop))
+        double savedLeft = type == IndicatorType.NumLock ? _settings.WindowLeft : _settings.CapsWindowLeft;
+        double savedTop = type == IndicatorType.NumLock ? _settings.WindowTop : _settings.CapsWindowTop;
+
+        double screenWidth = SystemParameters.PrimaryScreenWidth;
+        double screenHeight = SystemParameters.PrimaryScreenHeight;
+
+        if (!double.IsNaN(savedLeft) && !double.IsNaN(savedTop)
+            && savedLeft > -Width && savedLeft < screenWidth
+            && savedTop > -Height && savedTop < screenHeight)
         {
-            Left = _settings.WindowLeft;
-            Top = _settings.WindowTop;
+            Left = savedLeft;
+            Top = savedTop;
         }
         else
         {
-            Left = SystemParameters.PrimaryScreenWidth - Width - 20;
-            Top = 10;
+            double offset = type == IndicatorType.NumLock ? 0 : Height + 4;
+            Left = screenWidth - Width - 20;
+            Top = 10 + offset;
         }
 
         ApplySettings();
 
-        _lastState = IsNumLockOn();
+        _lastState = GetCurrentState();
         UpdateDisplay(false);
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
@@ -55,9 +86,11 @@ public partial class MainWindow : Window
         SettingsWindow.SettingsSaved += OnSettingsSaved;
     }
 
+    private bool GetCurrentState() => _type == IndicatorType.NumLock ? IsNumLockOn() : IsCapsLockOn();
+
     private void Timer_Tick(object? sender, EventArgs e)
     {
-        var currentState = IsNumLockOn();
+        var currentState = GetCurrentState();
         if (currentState != _lastState)
         {
             _lastState = currentState;
@@ -67,13 +100,15 @@ public partial class MainWindow : Window
 
     private void UpdateDisplay(bool animate)
     {
-        var isOn = IsNumLockOn();
+        var isOn = GetCurrentState();
+        var onText = _type == IndicatorType.NumLock ? _settings.OnText : _settings.CapsOnText;
+        var offText = _type == IndicatorType.NumLock ? _settings.OffText : _settings.CapsOffText;
 
         if (isOn)
         {
             MainBorder.Background = OnBg;
             StatusDot.Fill = OnDot;
-            StatusText.Text = _settings.OnText;
+            StatusText.Text = onText;
             StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0xEC, 0xF0, 0xF1));
             ShadowEffect.Color = Color.FromArgb(0x40, 0x27, 0xAE, 0x60);
             ShadowEffect.BlurRadius = 10;
@@ -83,7 +118,7 @@ public partial class MainWindow : Window
         {
             MainBorder.Background = OffBg;
             StatusDot.Fill = OffDot;
-            StatusText.Text = _settings.OffText;
+            StatusText.Text = offText;
             StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
             ShadowEffect.Color = Color.FromArgb(0x80, 0xE7, 0x4C, 0x3C);
             ShadowEffect.BlurRadius = 16;
@@ -135,23 +170,52 @@ public partial class MainWindow : Window
         });
     }
 
-    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
-
-    private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = "ms-settings:keyboard",
-            UseShellExecute = true
-        });
+        DragStarted?.Invoke(this);
+        DragMove();
+        DragCompleted?.Invoke(this);
+    }
+
+    private void Window_LocationChanged(object? sender, EventArgs e)
+    {
+        ClampToScreen();
+        PositionChanged?.Invoke(this);
+    }
+
+    private void ClampToScreen()
+    {
+        double screenW = SystemParameters.PrimaryScreenWidth;
+        double screenH = SystemParameters.PrimaryScreenHeight;
+        double w = ActualWidth > 0 ? ActualWidth : Width;
+        double h = ActualHeight > 0 ? ActualHeight : Height;
+
+        double minVisible = 20;
+
+        if (Left + w - minVisible < 0) Left = minVisible - w;
+        if (Top + h - minVisible < 0) Top = minVisible - h;
+        if (Left > screenW - minVisible) Left = screenW - minVisible;
+        if (Top > screenH - minVisible) Top = screenH - minVisible;
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _settings.WindowLeft = Left;
-        _settings.WindowTop = Top;
-        _settings.Save();
+        SavePosition();
         base.OnClosed(e);
+    }
+
+    public void SavePosition()
+    {
+        if (_type == IndicatorType.NumLock)
+        {
+            _settings.WindowLeft = Left;
+            _settings.WindowTop = Top;
+        }
+        else
+        {
+            _settings.CapsWindowLeft = Left;
+            _settings.CapsWindowTop = Top;
+        }
     }
 
     public new void Show() => base.Show();
