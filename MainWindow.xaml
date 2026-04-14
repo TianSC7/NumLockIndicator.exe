@@ -1,0 +1,43 @@
+<Window x:Class="NumLockIndicator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="NumLock Indicator"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Background="Transparent"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseDoubleClick="Window_MouseDoubleClick">
+    <Border Margin="8">
+        <Border.Effect>
+            <DropShadowEffect x:Name="ShadowEffect"
+                              ShadowDepth="2" BlurRadius="12" Opacity="0.5"
+                              Color="#FF000000" Direction="270" />
+        </Border.Effect>
+        <Border x:Name="MainBorder" CornerRadius="10" Padding="12,6" SnapsToDevicePixels="True">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="BorderScale" ScaleX="1" ScaleY="1" />
+            </Border.RenderTransform>
+            <Border.RenderTransformOrigin>
+                <Point X="0.5" Y="0.5" />
+            </Border.RenderTransformOrigin>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="StatusDot" Grid.Column="0"
+                         Width="10" Height="10"
+                         Margin="0,0,8,0"
+                         VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusText" Grid.Column="1"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           FontFamily="Microsoft YaHei" />
+            </Grid>
+        </Border>
+    </Border>
+</Window>

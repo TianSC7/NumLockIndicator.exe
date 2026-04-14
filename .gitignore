@@ -1,0 +1,19 @@
+## Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+
+## NuGet
+*.nupkg
+packages/
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
