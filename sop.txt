@@ -1,0 +1,131 @@
+# NumLock 状态悬浮窗 - 开发SOP
+
+## 项目概览
+
+**技术栈**：.NET 8.0 + WPF
+**功能**：监控 NumLock 状态，悬浮窗显示，托盘图标设置
+
+---
+
+## 文件结构
+
+```
+NumLockIndicator/
+├── NumLockIndicator.csproj
+├── App.xaml
+├── App.xaml.cs
+├── MainWindow.xaml
+├── MainWindow.xaml.cs
+├── TrayManager.cs
+├── SettingsWindow.xaml
+├── SettingsWindow.xaml.cs
+└── AppSettings.cs
+```
+
+---
+
+## .csproj 配置
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+  </ItemGroup>
+</Project>
+```
+
+---
+
+## 各文件职责说明
+
+### `AppSettings.cs`
+存储所有用户配置，支持 JSON 序列化持久化：
+- `FontSize`（默认 20）
+- `FontFamily`（默认 "Microsoft YaHei"）
+- `WindowWidth` / `WindowHeight`（默认 120×50）
+- `WindowLeft` / `WindowTop`（默认屏幕右上角）
+- `OnText`（默认 "NUM ON"）
+- `OffText`（默认 "⚠ NUM OFF"）
+- 读写路径：`%AppData%\NumLockIndicator\settings.json`
+
+---
+
+### `App.xaml.cs`
+- 设置单例运行（Mutex）
+- 启动时加载 `AppSettings`
+- 初始化 `TrayManager`
+- 不显示主窗口，由托盘控制
+
+---
+
+### `MainWindow.xaml / .cs`
+
+**XAML 要点：**
+- `WindowStyle="None"` + `AllowsTransparency="True"` + `Topmost="True"`
+- 背景色绑定到 NumLock 状态
+- 包含一个 `TextBlock` 显示状态文字
+
+**逻辑要点：**
+- 启动 `DispatcherTimer`，每 200ms 调用 `Control.IsKeyLocked(Key.NumLock)` 检测状态
+- **NumLock ON**：背景透明（`#00000000`），文字白色，无警告符
+- **NumLock OFF**：背景红色（`#FFDD0000`），文字黄色，显示 ⚠ 前缀
+- 鼠标左键按下 `MouseLeftButtonDown` → `DragMove()` 实现拖动
+- 窗口大小绑定 `AppSettings.WindowWidth/Height`
+- 关闭时保存窗口位置到 `AppSettings`
+
+---
+
+### `TrayManager.cs`
+
+使用 `Hardcodet.NotifyIcon.Wpf` 创建托盘图标：
+
+**右键菜单项：**
+- 设置字体 → 打开 `SettingsWindow`
+- 显示/隐藏窗口
+- 退出
+
+---
+
+### `SettingsWindow.xaml / .cs`
+
+提供以下设置项：
+- 字体选择（ComboBox，列出系统字体）
+- 字体大小（Slider 或 TextBox，范围 12–72）
+- 窗口宽度 / 高度（TextBox）
+- ON 状态显示文字（TextBox）
+- OFF 状态显示文字（TextBox）
+- 确定 → 保存到 `AppSettings` 并 JSON 序列化 → 通知 `MainWindow` 刷新
+
+---
+
+## 开发顺序 SOP
+
+```
+Step 1  创建项目 + 配置 .csproj
+Step 2  编写 AppSettings.cs（数据模型 + JSON 读写）
+Step 3  编写 MainWindow（UI + 定时器检测 + 拖动）
+Step 4  编写 TrayManager（托盘图标 + 菜单）
+Step 5  编写 App.xaml.cs（单例 + 初始化流程）
+Step 6  编写 SettingsWindow（设置UI + 保存逻辑）
+Step 7  联调：设置修改 → 主窗口实时刷新
+Step 8  测试 NumLock 切换显示是否正确
+Step 9  发布：dotnet publish -c Release -r win-x64 --self-contained false
+```
+
+---
+
+## 注意事项给 AI
+
+1. `Control.IsKeyLocked(Key.NumLock)` 需引用 `System.Windows.Input`
+2. 托盘图标需要一个 `.ico` 文件，可先用占位图，后期替换
+3. 拖动用 `DragMove()`，注意只在 `MouseLeftButtonDown` 时调用
+4. 设置窗口改完后通过**事件或静态引用**通知 `MainWindow` 立即刷新，不要重启才生效
+5. `Topmost=True` 保证悬浮在所有窗口之上
