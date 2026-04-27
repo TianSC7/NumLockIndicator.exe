@@ -19,6 +19,8 @@ public class AppSettings
     public string CapsOffText { get; set; } = "CAPS OFF";
     public double CapsWindowLeft { get; set; } = double.NaN;
     public double CapsWindowTop { get; set; } = double.NaN;
+    public bool MiddleButtonFilterEnabled { get; set; } = true;
+    public int MiddleButtonFilterThresholdMs { get; set; } = 200;
 
     private static readonly string SettingsDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NumLockIndicator");

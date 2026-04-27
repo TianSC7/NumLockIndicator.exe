@@ -6,18 +6,20 @@ using Hardcodet.Wpf.TaskbarNotification;
 
 namespace NumLockIndicator;
 
-public class TrayManager : IDisposable
+internal class TrayManager : IDisposable
 {
     private TaskbarIcon? _notifyIcon;
     private readonly List<IndicatorWindow> _windows = new();
     private readonly AppSettings _settings;
+    private readonly MiddleButtonFilter? _filter;
     private MenuItem? _toggleItem;
 
-    public TrayManager(IndicatorWindow numLockWindow, IndicatorWindow capsLockWindow, AppSettings settings)
+    public TrayManager(IndicatorWindow numLockWindow, IndicatorWindow capsLockWindow, AppSettings settings, MiddleButtonFilter? filter)
     {
         _windows.Add(numLockWindow);
         _windows.Add(capsLockWindow);
         _settings = settings;
+        _filter = filter;
         InitializeTray();
     }
 
@@ -31,6 +33,19 @@ public class TrayManager : IDisposable
         };
 
         var contextMenu = new ContextMenu();
+
+        var menuFilter = new MenuItem { Header = "中键过滤", IsCheckable = true };
+        menuFilter.IsChecked = _filter?.IsEnabled ?? false;
+        menuFilter.Click += (_, _) =>
+        {
+            if (_filter != null)
+            {
+                _filter.IsEnabled = !_filter.IsEnabled;
+                menuFilter.IsChecked = _filter.IsEnabled;
+                _settings.MiddleButtonFilterEnabled = _filter.IsEnabled;
+            }
+        };
+        contextMenu.Items.Add(menuFilter);
 
         var settingsItem = new MenuItem { Header = "设置..." };
         settingsItem.Click += (s, e) => OpenSettings();
@@ -47,7 +62,11 @@ public class TrayManager : IDisposable
         contextMenu.Items.Add(exitItem);
 
         _notifyIcon.ContextMenu = contextMenu;
-        contextMenu.Opened += (s, e) => UpdateToggleText();
+        contextMenu.Opened += (s, e) =>
+        {
+            UpdateToggleText();
+            menuFilter.IsChecked = _filter?.IsEnabled ?? false;
+        };
     }
 
     private void UpdateToggleText()

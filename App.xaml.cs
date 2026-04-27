@@ -12,6 +12,7 @@ public partial class App : Application
     private TrayManager? _trayManager;
     private AppSettings? _settings;
     private SnapManager? _snapManager;
+    private MiddleButtonFilter? _middleButtonFilter;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -35,7 +36,21 @@ public partial class App : Application
 
         _snapManager = new SnapManager(_numLockWindow, _capsLockWindow);
 
-        _trayManager = new TrayManager(_numLockWindow, _capsLockWindow, _settings);
+        _middleButtonFilter = new MiddleButtonFilter(_settings.MiddleButtonFilterThresholdMs);
+        _middleButtonFilter.IsEnabled = _settings.MiddleButtonFilterEnabled;
+
+        _trayManager = new TrayManager(_numLockWindow, _capsLockWindow, _settings, _middleButtonFilter);
+
+        SettingsWindow.SettingsSaved += OnSettingsSaved;
+    }
+
+    private void OnSettingsSaved()
+    {
+        if (_middleButtonFilter != null)
+        {
+            _middleButtonFilter.IsEnabled = _settings!.MiddleButtonFilterEnabled;
+            _middleButtonFilter.UpdateThreshold(_settings.MiddleButtonFilterThresholdMs);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -43,6 +58,7 @@ public partial class App : Application
         _numLockWindow?.SavePosition();
         _capsLockWindow?.SavePosition();
         _settings?.Save();
+        _middleButtonFilter?.Dispose();
         _trayManager?.Dispose();
         if (_ownsMutex)
         {

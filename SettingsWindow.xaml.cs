@@ -29,6 +29,10 @@ public partial class SettingsWindow : Window
         CapsOnTextBox.Text = _settings.CapsOnText;
         CapsOffTextBox.Text = _settings.CapsOffText;
 
+        FilterEnabledCheck.IsChecked = _settings.MiddleButtonFilterEnabled;
+        FilterThresholdSlider.Value = _settings.MiddleButtonFilterThresholdMs;
+        FilterThresholdLabel.Text = $"{_settings.MiddleButtonFilterThresholdMs}ms";
+
         foreach (var family in Fonts.SystemFontFamilies)
         {
             FontFamilyCombo.Items.Add(family.Source);
@@ -45,6 +49,12 @@ public partial class SettingsWindow : Window
     {
         if (FontSizeLabel == null) return;
         FontSizeLabel.Text = ((int)FontSizeSlider.Value).ToString();
+    }
+
+    private void FilterThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (FilterThresholdLabel == null) return;
+        FilterThresholdLabel.Text = $"{(int)FilterThresholdSlider.Value}ms";
     }
 
     private bool ApplyValues()
@@ -68,6 +78,8 @@ public partial class SettingsWindow : Window
         _settings.OffText = OffTextBox.Text;
         _settings.CapsOnText = CapsOnTextBox.Text;
         _settings.CapsOffText = CapsOffTextBox.Text;
+        _settings.MiddleButtonFilterEnabled = FilterEnabledCheck.IsChecked ?? true;
+        _settings.MiddleButtonFilterThresholdMs = (int)FilterThresholdSlider.Value;
 
         try
         {

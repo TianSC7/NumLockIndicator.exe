@@ -15,6 +15,14 @@ public partial class IndicatorWindow : Window
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int nVirtKey);
 
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOACTIVATE = 0x0010;
+
     private static bool IsNumLockOn() => (GetKeyState(0x90) & 0x0001) != 0;
     private static bool IsCapsLockOn() => (GetKeyState(0x14) & 0x0001) != 0;
 
@@ -22,6 +30,7 @@ public partial class IndicatorWindow : Window
     private readonly AppSettings _settings;
     private readonly IndicatorType _type;
     private bool _lastState;
+    private readonly DispatcherTimer _topmostTimer;
 
     private static readonly SolidColorBrush OnBg = new(Color.FromArgb(0x30, 0x27, 0xAE, 0x60));
     private static readonly SolidColorBrush OffBg = new(Color.FromArgb(0xE0, 0xE7, 0x4C, 0x3C));
@@ -82,6 +91,12 @@ public partial class IndicatorWindow : Window
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         _timer.Tick += Timer_Tick;
         _timer.Start();
+
+        _topmostTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _topmostTimer.Tick += (_, _) => EnforceTopmost();
+        _topmostTimer.Start();
+
+        Loaded += (_, _) => EnforceTopmost();
 
         SettingsWindow.SettingsSaved += OnSettingsSaved;
     }
@@ -150,6 +165,18 @@ public partial class IndicatorWindow : Window
         }
     }
 
+    private void EnforceTopmost()
+    {
+        try
+        {
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            if (helper.Handle != IntPtr.Zero)
+                SetWindowPos(helper.Handle, HWND_TOPMOST, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        catch { }
+    }
+
     private void ApplySettings()
     {
         Width = _settings.WindowWidth;
@@ -200,6 +227,7 @@ public partial class IndicatorWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _topmostTimer.Stop();
         SavePosition();
         base.OnClosed(e);
     }
@@ -218,6 +246,10 @@ public partial class IndicatorWindow : Window
         }
     }
 
-    public new void Show() => base.Show();
+    public new void Show()
+    {
+        base.Show();
+        EnforceTopmost();
+    }
     public new void Hide() => base.Hide();
 }
