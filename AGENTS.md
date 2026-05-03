@@ -45,6 +45,8 @@ NumLockIndicator/
 ├── TrayManager.cs           # System tray icon + right-click context menu (filter toggle, settings, hide/show, exit)
 ├── SettingsWindow.xaml      # Settings dialog UI (font, size, window dims, ON/OFF text per key, middle-button filter)
 ├── SettingsWindow.xaml.cs   # Settings logic — loads from AppSettings, applies/saves, fires SettingsSaved event
+├── Helpers/
+│   └── TopmostManager.cs    # Centralized topmost window manager with priority-based ordering
 ├── NumLockIndicator.csproj  # Project file — WinExe, net8.0-windows, UseWPF, Hardcodet.NotifyIcon.Wpf 2.0.1
 ├── dotnet-tools.json        # ilspycmd 10.0.0.8330 (decompiler utility)
 ├── icon.ico                 # Tray icon (embedded as <Resource>)
@@ -104,12 +106,21 @@ Shutdown:
 - Position initialized to `double.NaN` → placed at top-right of screen
 - `ClampToScreen()` ensures at least 20px visible on screen edges
 - `DragMove()` on `MouseLeftButtonDown` for repositioning
+- Registers with `TopmostManager` on Loaded and unregisters on Closed
 
 ### SnapManager
 - Two-window snap system with threshold 10px and gap 2px
 - Supports vertical and horizontal snapping
 - Leader/follower model: dragging leader moves follower; dragging follower detaches
 - Uses `_updating` flag to prevent recursive position change handlers
+
+### TopmostManager
+- Centralized static class for managing topmost window ordering
+- Uses a single `DispatcherTimer` (1-second interval) to update all registered windows
+- Priority-based ordering: lower priority values processed first, higher priority values end up on top
+- Automatic timer management: stops when no windows registered, starts when first window registers
+- `Register(Window, priority)` and `Unregister(Window)` methods for window lifecycle management
+- Both IndicatorWindow instances register with priority=1
 
 ### MiddleButtonFilter
 - Global low-level mouse hook (`WH_MOUSE_LL = 14`) via `SetWindowsHookEx`
